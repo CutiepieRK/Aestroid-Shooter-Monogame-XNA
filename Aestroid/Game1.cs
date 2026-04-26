@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -13,6 +14,11 @@ public class Game1 : Game
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private SpriteFont _font;
+    private SoundEffect _high;
+    private SoundEffect _click;
+    private SoundEffect _explode;
+    private SoundEffect _shoot;
+    private SoundEffect _kill;
 
     Sprite player;
     Texture2D dotTexture;
