@@ -1,0 +1,8 @@
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Aestroid.pdb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Content/File.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Content/ROCKS.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Content/ScoreFont.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Content/SPACE SHIP.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/libSDL2-2.0.so.0
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/publish/Aestroid
