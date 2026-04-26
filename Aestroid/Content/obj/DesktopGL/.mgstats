@@ -1,4 +1,5 @@
 Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
 "/home/arish/DEV/Aestroid/Aestroid/Content/File.spritefont","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/File.xnb","FontDescriptionProcessor","SpriteFontContent",2014,21530,0.200096
 "/home/arish/DEV/Aestroid/Aestroid/Content/ROCKS.png","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/ROCKS.xnb","TextureProcessor","Texture2DContent",240,341,0.1122781
+"/home/arish/DEV/Aestroid/Aestroid/Content/ScoreFont.spritefont","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/ScoreFont.xnb","FontDescriptionProcessor","SpriteFontContent",2012,21530,0.2097577
 "/home/arish/DEV/Aestroid/Aestroid/Content/SPACE SHIP.png","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/SPACE SHIP.xnb","TextureProcessor","Texture2DContent",145,341,0.1694082
