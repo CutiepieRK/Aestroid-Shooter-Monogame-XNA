@@ -1,14 +1,34 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input; // FIX: Adds Keys, Keyboard, GamePad
 using Microsoft.Xna.Framework.Media;
 using System;
 using System.Collections.Generic;
 
 namespace Aestroid;
 
-public enum GameState { Start, Playing, GameOver }
+public enum GameState { MainMenu, Options, Playing, Paused, GameOver }
+
+// --- INPUT MANAGER (Fixed with proper namespaces) ---
+public static class InputManager
+{
+    private static KeyboardState kState, prevKState;
+    private static GamePadState pState, prevPState;
+
+    public static void Update()
+    {
+        prevKState = kState;
+        kState = Keyboard.GetState();
+        prevPState = pState;
+        pState = GamePad.GetState(PlayerIndex.One);
+    }
+
+    public static bool IsKeyPressed(Keys k) => kState.IsKeyDown(k) && prevKState.IsKeyUp(k);
+    public static bool IsKeyDown(Keys k) => kState.IsKeyDown(k);
+    public static bool IsPadPressed(Buttons b) => pState.IsButtonDown(b) && prevPState.IsButtonUp(b);
+    public static bool IsPadDown(Buttons b) => pState.IsButtonDown(b);
+}
 
 public class DelayedSound {
     public SoundEffect Sfx;
@@ -25,17 +45,21 @@ public class Game1 : Game
 
     private Song _bgMusic;
     private SoundEffect _clickSfx, _explosionSfx, _laserSfx, _pickupSfx, _powerUpSfx;
-    private List<DelayedSound> _soundQueue = new List<DelayedSound>();
-
+    private Texture2D dotTexture, enemyTexture;
+    
     Sprite player;
-    Texture2D dotTexture, enemyTexture;
     List<Bullet> playerBullets = new List<Bullet>();
     List<Enemy> enemies = new List<Enemy>();
+    List<DelayedSound> _soundQueue = new List<DelayedSound>();
 
-    GameState currentState = GameState.Start;
+    GameState currentState = GameState.MainMenu;
     int score = 0, highScore = 0;
     bool highScoreBeaten = false;
-    float shootTimer = 0f, spawnTimer = 2.0f, difficultyTimer = 0f, currentSpawnRate = 2.0f;
+    float masterVolume = 1.0f, musicVolume = 0.1f;
+    int selectedOption = 0; 
+    bool isUsingGamepad = false;
+
+    float shootTimer, spawnTimer, difficultyTimer, currentSpawnRate;
     Random rng = new Random();
     int screenWidth = 800, screenHeight = 800;
 
@@ -44,7 +68,6 @@ public class Game1 : Game
         _graphics = new GraphicsDeviceManager(this);
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
-        Window.Title = "Aestroid Shooter";
     }
 
     protected override void Initialize()
@@ -58,19 +81,19 @@ public class Game1 : Game
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-        player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4.0f, Color.White, 300f);
-        enemyTexture = Content.Load<Texture2D>("ROCKS"); 
         _font = Content.Load<SpriteFont>("ScoreFont");
+        player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4.0f, Color.White, 300f);
+        enemyTexture = Content.Load<Texture2D>("ROCKS");
 
         _clickSfx = Content.Load<SoundEffect>("click");
         _explosionSfx = Content.Load<SoundEffect>("explosion");
         _laserSfx = Content.Load<SoundEffect>("laserShoot (1)");
         _pickupSfx = Content.Load<SoundEffect>("pickupCoin");
         _powerUpSfx = Content.Load<SoundEffect>("powerUp");
-
+        
         _bgMusic = Content.Load<Song>("White");
         MediaPlayer.IsRepeating = true;
-        MediaPlayer.Volume = 0.1f; 
+        MediaPlayer.Volume = musicVolume;
         MediaPlayer.Play(_bgMusic);
 
         dotTexture = new Texture2D(GraphicsDevice, 1, 1);
@@ -79,190 +102,185 @@ public class Game1 : Game
 
     private void ResetGame()
     {
-        _clickSfx.Play(1.0f, 0.4f, 0f); 
+        _clickSfx.Play(masterVolume, 0.5f, 0f);
         score = 0;
         highScoreBeaten = false;
         currentSpawnRate = 2.0f;
         difficultyTimer = 0f;
         enemies.Clear();
         playerBullets.Clear();
-        _soundQueue.Clear();
         player.position = new Vector2(screenWidth / 2, screenHeight / 2);
         currentState = GameState.Playing;
     }
 
     protected override void Update(GameTime gameTime)
     {
-        InputManager.Update();
+        InputManager.Update(); 
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        
+        // Detect Controller
+        if (GamePad.GetState(PlayerIndex.One).IsConnected) isUsingGamepad = true;
 
-        for (int i = _soundQueue.Count - 1; i >= 0; i--)
-        {
+        // Sound Processor
+        for (int i = _soundQueue.Count - 1; i >= 0; i--) {
             _soundQueue[i].Timer -= deltaTime;
-            if (_soundQueue[i].Timer <= 0)
-            {
-                _soundQueue[i].Sfx.Play(_soundQueue[i].Volume, _soundQueue[i].Pitch, 0f);
+            if (_soundQueue[i].Timer <= 0) {
+                _soundQueue[i].Sfx.Play(_soundQueue[i].Volume * masterVolume, _soundQueue[i].Pitch, 0f);
                 _soundQueue.RemoveAt(i);
             }
         }
 
-        if (currentState != GameState.Playing)
+        switch (currentState)
         {
-            if (Keyboard.GetState().IsKeyDown(Keys.Space)) ResetGame();
-            return;
+            case GameState.MainMenu: UpdateMainMenu(); break;
+            case GameState.Options: UpdateOptions(); break;
+            case GameState.Paused: UpdatePause(); break;
+            case GameState.Playing: UpdateGameplay(deltaTime); break;
+            case GameState.GameOver: if (InputManager.IsKeyPressed(Keys.Space) || InputManager.IsPadPressed(Buttons.Start)) ResetGame(); break;
         }
+
+        base.Update(gameTime);
+    }
+
+    private void UpdateMainMenu()
+    {
+        if (InputManager.IsKeyPressed(Keys.W) || InputManager.IsPadPressed(Buttons.DPadUp)) { selectedOption = 0; _clickSfx.Play(0.4f * masterVolume, 0.5f, 0f); }
+        if (InputManager.IsKeyPressed(Keys.S) || InputManager.IsPadPressed(Buttons.DPadDown)) { selectedOption = 1; _clickSfx.Play(0.4f * masterVolume, 0.5f, 0f); }
+
+        if (InputManager.IsKeyPressed(Keys.Enter) || InputManager.IsPadPressed(Buttons.A)) {
+            _clickSfx.Play(masterVolume, 1f, 0f);
+            if (selectedOption == 0) ResetGame();
+            else currentState = GameState.Options;
+        }
+    }
+
+    private void UpdateOptions()
+    {
+        if (InputManager.IsKeyPressed(Keys.W) || InputManager.IsPadPressed(Buttons.DPadUp)) selectedOption = Math.Max(0, selectedOption - 1);
+        if (InputManager.IsKeyPressed(Keys.S) || InputManager.IsPadPressed(Buttons.DPadDown)) selectedOption = Math.Min(2, selectedOption + 1);
+
+        if (selectedOption == 0) {
+            if (InputManager.IsKeyDown(Keys.D) || InputManager.IsPadDown(Buttons.DPadRight)) masterVolume = MathHelper.Clamp(masterVolume + 0.01f, 0, 1);
+            if (InputManager.IsKeyDown(Keys.A) || InputManager.IsPadDown(Buttons.DPadLeft)) masterVolume = MathHelper.Clamp(masterVolume - 0.01f, 0, 1);
+        }
+        if (selectedOption == 1) {
+            if (InputManager.IsKeyDown(Keys.D) || InputManager.IsPadDown(Buttons.DPadRight)) musicVolume = MathHelper.Clamp(musicVolume + 0.01f, 0, 1);
+            if (InputManager.IsKeyDown(Keys.A) || InputManager.IsPadDown(Buttons.DPadLeft)) musicVolume = MathHelper.Clamp(musicVolume - 0.01f, 0, 1);
+            MediaPlayer.Volume = musicVolume;
+        }
+
+        if (InputManager.IsKeyPressed(Keys.Escape) || InputManager.IsPadPressed(Buttons.B) || (selectedOption == 2 && InputManager.IsKeyPressed(Keys.Enter))) {
+            _clickSfx.Play(masterVolume, 0.5f, 0f);
+            currentState = GameState.MainMenu;
+        }
+    }
+
+    private void UpdatePause()
+    {
+        if (InputManager.IsKeyPressed(Keys.Escape) || InputManager.IsPadPressed(Buttons.Start)) currentState = GameState.Playing;
+    }
+
+    private void UpdateGameplay(float deltaTime)
+    {
+        if (InputManager.IsKeyPressed(Keys.Escape) || InputManager.IsPadPressed(Buttons.Start)) { currentState = GameState.Paused; return; }
 
         difficultyTimer += deltaTime;
         currentSpawnRate = Math.Max(0.35f, 2.0f - (float)Math.Floor(difficultyTimer / 10f) * 0.2f);
-
+        
+        GamePadState pad = GamePad.GetState(PlayerIndex.One);
         MouseState mouse = Mouse.GetState();
-        Vector2 dirToMouse = new Vector2(mouse.X, mouse.Y) - player.position;
-        player.rotation = (float)Math.Atan2(dirToMouse.Y, dirToMouse.X) + MathHelper.PiOver2;
-        float moveAngle = player.rotation - MathHelper.PiOver2;
 
-        if (InputManager.IsKeyDown(Keys.W))
-        {
-            Vector2 forward = new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle));
-            player.position += forward * player.speed * deltaTime;
+        // Control Logic
+        Vector2 moveDir = Vector2.Zero;
+        if (isUsingGamepad) moveDir = pad.ThumbSticks.Left;
+        else if (InputManager.IsKeyDown(Keys.W)) {
+            float rot = player.rotation - MathHelper.PiOver2;
+            moveDir = new Vector2((float)Math.Cos(rot), (float)Math.Sin(rot));
+        }
+        player.position += moveDir * player.speed * deltaTime;
+
+        if (isUsingGamepad && pad.ThumbSticks.Right.Length() > 0.2f)
+            player.rotation = (float)Math.Atan2(pad.ThumbSticks.Right.X, -pad.ThumbSticks.Right.Y);
+        else if (!isUsingGamepad) {
+            Vector2 dir = new Vector2(mouse.X, mouse.Y) - player.position;
+            player.rotation = (float)Math.Atan2(dir.Y, dir.X) + MathHelper.PiOver2;
         }
 
-        if (shootTimer > 0) shootTimer -= deltaTime;
-        if (mouse.LeftButton == ButtonState.Pressed && shootTimer <= 0)
-        {
-            _laserSfx.Play(0.1f, 0.1f, 0f); 
-            playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle)) * 750f));
+        shootTimer -= deltaTime;
+        if ((mouse.LeftButton == ButtonState.Pressed || pad.Triggers.Right > 0.5f) && shootTimer <= 0) {
+            _laserSfx.Play(0.1f * masterVolume, 0.2f, 0f);
+            float bRot = player.rotation - MathHelper.PiOver2;
+            playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(bRot), (float)Math.Sin(bRot)) * 750f));
             shootTimer = 0.18f;
         }
 
+        // Enemies
         spawnTimer -= deltaTime;
-        if (spawnTimer <= 0)
-        {
-            Vector2 spawnPos = Vector2.Zero;
-            int side = rng.Next(4);
-            if (side == 0) spawnPos = new Vector2(rng.Next(screenWidth), -60);
-            else if (side == 1) spawnPos = new Vector2(rng.Next(screenWidth), screenHeight + 60);
-            else if (side == 2) spawnPos = new Vector2(-60, rng.Next(screenHeight));
-            else spawnPos = new Vector2(screenWidth + 60, rng.Next(screenHeight));
-
-            enemies.Add(new Enemy(spawnPos, player.position, rng));
+        if (spawnTimer <= 0) {
+            enemies.Add(new Enemy(new Vector2(rng.Next(screenWidth), -50), player.position, rng));
             spawnTimer = currentSpawnRate;
         }
 
-        for (int i = enemies.Count - 1; i >= 0; i--)
-        {
+        for (int i = enemies.Count - 1; i >= 0; i--) {
             enemies[i].Update(deltaTime);
-
-            // DEATH CHECK
-            if (Vector2.Distance(player.position, enemies[i].position) < 42)
-            {
-                _explosionSfx.Play(1.0f, -0.4f, 0f); 
-                
-                // If they break record as they die
-                if (score > highScore || highScoreBeaten) {
-                    if (score > highScore) highScore = score;
-                    highScoreBeaten = true;
-                    // Play the sound TWICE with a tiny gap so you definitely hear it
-                    _powerUpSfx.Play(1.0f, 0.5f, 0f);
-                    _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.3f, Volume = 1.0f, Pitch = 0.7f });
-                }
+            if (Vector2.Distance(player.position, enemies[i].position) < 42) {
+                _explosionSfx.Play(1.0f * masterVolume, -0.4f, 0f);
+                if (score > highScore) highScore = score;
                 currentState = GameState.GameOver;
+                if (highScoreBeaten) _powerUpSfx.Play(1.0f * masterVolume, 0.5f, 0f);
             }
-
-            for (int j = playerBullets.Count - 1; j >= 0; j--)
-            {
-                if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 35)
-                {
-                    _explosionSfx.Play(0.3f, (float)rng.NextDouble() - 0.2f, 0f);
-                    _soundQueue.Add(new DelayedSound { Sfx = _pickupSfx, Timer = 0.1f, Volume = 0.5f, Pitch = 0.2f });
-
-                    enemies.RemoveAt(i);
-                    playerBullets.RemoveAt(j);
-                    score += 100;
-
-                    if (score > highScore && highScore > 0 && !highScoreBeaten)
-                    {
+            for (int j = playerBullets.Count - 1; j >= 0; j--) {
+                if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 35) {
+                    _explosionSfx.Play(0.3f * masterVolume, 0f, 0f);
+                    enemies.RemoveAt(i); playerBullets.RemoveAt(j); score += 100;
+                    if (score > highScore && highScore > 0 && !highScoreBeaten) {
                         highScoreBeaten = true;
-                        _powerUpSfx.Play(1.0f, 0.5f, 0f); 
-                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.2f, Volume = 0.8f, Pitch = 0.7f });
+                        _powerUpSfx.Play(1.0f * masterVolume, 0.8f, 0f);
                     }
                     break;
                 }
             }
         }
-
-        for (int i = playerBullets.Count - 1; i >= 0; i--)
-        {
-            playerBullets[i].position += playerBullets[i].velocity * deltaTime;
-            if (playerBullets[i].position.X < -100 || playerBullets[i].position.X > 900 || playerBullets[i].position.Y < -100 || playerBullets[i].position.Y > 900)
-                playerBullets.RemoveAt(i);
-        }
-
-        base.Update(gameTime);
     }
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.Black);
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        Vector2 mid = new Vector2(screenWidth / 2, screenHeight / 2);
         
-        // Flash timer for "NEW RECORD"
-        Color flashColor = (gameTime.TotalGameTime.Milliseconds % 400 < 200) ? Color.Yellow : Color.Red;
+        Color flash = (gameTime.TotalGameTime.Milliseconds % 400 < 200) ? Color.Yellow : Color.Red;
 
-        if (currentState == GameState.Start)
-        {
-            DrawCenteredText("AESTROID SHOOTER", mid.Y - 50, Color.White);
-            DrawCenteredText("PRESS SPACE TO START", mid.Y + 20, Color.Yellow);
+        if (currentState == GameState.MainMenu) {
+            DrawCenteredText("AESTROID SHOOTER", 250, Color.White);
+            DrawCenteredText("START GAME", 400, selectedOption == 0 ? Color.Yellow : Color.Gray);
+            DrawCenteredText("OPTIONS", 460, selectedOption == 1 ? Color.Yellow : Color.Gray);
         }
-        else
-        {
-            // Gameplay Drawing
+        else if (currentState == GameState.Options) {
+            DrawCenteredText("SETTINGS", 150, Color.White);
+            DrawCenteredText($"MASTER VOLUME: {(int)(masterVolume * 100)}%", 300, selectedOption == 0 ? Color.Yellow : Color.White);
+            DrawCenteredText($"MUSIC VOLUME: {(int)(musicVolume * 100)}%", 360, selectedOption == 1 ? Color.Yellow : Color.White);
+            DrawCenteredText("BACK", 450, selectedOption == 2 ? Color.Yellow : Color.White);
+        }
+        else if (currentState == GameState.Playing || currentState == GameState.Paused) {
             _spriteBatch.Draw(player.texture, player.position, null, Color.White, player.rotation, player.origin, 4f, SpriteEffects.None, 0f);
-            foreach (var e in enemies)
-                _spriteBatch.Draw(enemyTexture, e.position, null, Color.White, e.rotation, new Vector2(enemyTexture.Width / 2, enemyTexture.Height / 2), 4f, SpriteEffects.None, 0f);
-            foreach (var b in playerBullets)
-                _spriteBatch.Draw(dotTexture, b.position, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
-
-            // LIVE HUD
-            if (highScoreBeaten)
-                _spriteBatch.DrawString(_font, $"NEW RECORD: {score}", new Vector2(20, 20), flashColor);
-            else
-                _spriteBatch.DrawString(_font, $"SCORE: {score}", new Vector2(20, 20), Color.White);
-
-            string hiLabel = $"HI-SCORE: {Math.Max(score, highScore)}";
-            Vector2 hiSize = _font.MeasureString(hiLabel);
-            _spriteBatch.DrawString(_font, hiLabel, new Vector2(screenWidth - hiSize.X - 20, 20), Color.Yellow);
-
-            _spriteBatch.DrawString(_font, "W: MOVE | LMB: SHOOT | MOUSE: AIM", new Vector2(20, 760), Color.Gray);
-
-            // GAME OVER HUD
-            if (currentState == GameState.GameOver)
-            {
-                // Darken screen slightly (optional but looks nice)
-                _spriteBatch.Draw(dotTexture, new Rectangle(0, 0, 800, 800), Color.Black * 0.5f);
-
-                DrawCenteredText("GAME OVER", mid.Y - 80, Color.Red);
-                DrawCenteredText($"FINAL SCORE: {score}", mid.Y - 20, Color.White);
-                
-                if (highScoreBeaten)
-                {
-                    // MEGA FLASHING NOTIFICATION
-                    DrawCenteredText("!!! NEW HIGH SCORE !!!", mid.Y + 20, flashColor);
-                }
-                else
-                {
-                    DrawCenteredText($"HIGH SCORE: {highScore}", mid.Y + 20, Color.Gray);
-                }
-                
-                DrawCenteredText("PRESS SPACE TO RESTART", mid.Y + 80, Color.Yellow);
-            }
+            foreach (var e in enemies) _spriteBatch.Draw(enemyTexture, e.position, null, Color.White, e.rotation, new Vector2(25,25), 4f, SpriteEffects.None, 0f);
+            foreach (var b in playerBullets) _spriteBatch.Draw(dotTexture, b.position, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
+            
+            _spriteBatch.DrawString(_font, highScoreBeaten ? $"NEW RECORD: {score}" : $"SCORE: {score}", new Vector2(20,20), highScoreBeaten ? flash : Color.White);
+            if (currentState == GameState.Paused) DrawCenteredText("PAUSED", 400, Color.White);
         }
+        else if (currentState == GameState.GameOver) {
+            DrawCenteredText("GAME OVER", 300, Color.Red);
+            DrawCenteredText($"SCORE: {score}", 360, Color.White);
+            if (highScoreBeaten) DrawCenteredText("!!! NEW HIGH SCORE !!!", 420, flash);
+            DrawCenteredText("SPACE / START TO RESTART", 600, Color.Gray);
+        }
+
         _spriteBatch.End();
     }
 
-    private void DrawCenteredText(string text, float y, Color color)
-    {
+    private void DrawCenteredText(string text, float y, Color color) {
         Vector2 size = _font.MeasureString(text);
-        _spriteBatch.DrawString(_font, text, new Vector2(screenWidth / 2 - size.X / 2, y), color);
+        _spriteBatch.DrawString(_font, text, new Vector2(screenWidth/2 - size.X/2, y), color);
     }
 }
