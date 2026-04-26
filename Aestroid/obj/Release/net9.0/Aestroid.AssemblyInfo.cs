@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Aestroid")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3d23dc262687cbf5f4c6b16eb315b181bfd9034d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3515e4f1a775571148fdb9a3f981170398320b18")]
 [assembly: System.Reflection.AssemblyProductAttribute("Aestroid")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Aestroid")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
