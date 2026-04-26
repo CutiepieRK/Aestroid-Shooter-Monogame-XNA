@@ -19,6 +19,12 @@
 /processorParam:Quality=Best
 /build:click.wav
 
+#begin danevaer-white-noise-434731.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:danevaer-white-noise-434731.mp3;White.mp3
+
 #begin explosion.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor

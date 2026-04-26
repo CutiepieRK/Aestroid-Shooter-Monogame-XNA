@@ -5,6 +5,7 @@
   <Config />
   <SourceFiles>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/click.wav</File>
+    <File>/home/arish/DEV/Aestroid/Aestroid/Content/danevaer-white-noise-434731.mp3</File>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/explosion.wav</File>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/File.spritefont</File>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/laserShoot (1).wav</File>
@@ -16,6 +17,7 @@
   </SourceFiles>
   <DestFiles>
     <File xsi:nil="true" />
+    <File>White.mp3</File>
     <File xsi:nil="true" />
     <File xsi:nil="true" />
     <File xsi:nil="true" />

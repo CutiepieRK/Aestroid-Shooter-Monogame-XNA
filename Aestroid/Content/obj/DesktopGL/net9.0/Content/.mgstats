@@ -1,5 +1,6 @@
 Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
 "/home/arish/DEV/Aestroid/Aestroid/Content/click.wav","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/click.xnb","SoundEffectProcessor","SoundEffectContent",248,309,0.1181324
+"/home/arish/DEV/Aestroid/Aestroid/Content/danevaer-white-noise-434731.mp3","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/White.xnb","SongProcessor","SongContent",9601358,123,3.5017016
 "/home/arish/DEV/Aestroid/Aestroid/Content/explosion.wav","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/explosion.xnb","SoundEffectProcessor","SoundEffectContent",25011,25072,0.0085043
 "/home/arish/DEV/Aestroid/Aestroid/Content/File.spritefont","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/File.xnb","FontDescriptionProcessor","SpriteFontContent",2014,21530,0.2335679
 "/home/arish/DEV/Aestroid/Aestroid/Content/laserShoot (1).wav","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/laserShoot (1).xnb","SoundEffectProcessor","SoundEffectContent",6497,6558,0.0095887

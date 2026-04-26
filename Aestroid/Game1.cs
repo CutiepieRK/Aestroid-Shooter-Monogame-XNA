@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media; // REQUIRED FOR MUSIC
 using System;
 using System.Collections.Generic;
 
@@ -22,6 +23,8 @@ public class Game1 : Game
     private SpriteBatch _spriteBatch;
     private SpriteFont _font;
 
+    // Music and Sounds
+    private Song _bgMusic;
     private SoundEffect _clickSfx, _explosionSfx, _laserSfx, _pickupSfx, _powerUpSfx;
     private List<DelayedSound> _soundQueue = new List<DelayedSound>();
 
@@ -60,11 +63,18 @@ public class Game1 : Game
         enemyTexture = Content.Load<Texture2D>("ROCKS"); 
         _font = Content.Load<SpriteFont>("ScoreFont");
 
+        // Load Sounds
         _clickSfx = Content.Load<SoundEffect>("click");
         _explosionSfx = Content.Load<SoundEffect>("explosion");
         _laserSfx = Content.Load<SoundEffect>("laserShoot (1)");
         _pickupSfx = Content.Load<SoundEffect>("pickupCoin");
         _powerUpSfx = Content.Load<SoundEffect>("powerUp");
+
+        // --- BACKGROUND MUSIC SETUP ---
+        _bgMusic = Content.Load<Song>("White");
+        MediaPlayer.IsRepeating = true;      // Enable Looping
+        MediaPlayer.Volume = 0.1f;           // 10% Volume
+        MediaPlayer.Play(_bgMusic);          // Start the music
 
         dotTexture = new Texture2D(GraphicsDevice, 1, 1);
         dotTexture.SetData(new[] { Color.White });
@@ -89,7 +99,6 @@ public class Game1 : Game
         InputManager.Update();
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-        // Sound Processor (Works even in GameOver state)
         for (int i = _soundQueue.Count - 1; i >= 0; i--)
         {
             _soundQueue[i].Timer -= deltaTime;
@@ -123,7 +132,7 @@ public class Game1 : Game
         if (shootTimer > 0) shootTimer -= deltaTime;
         if (mouse.LeftButton == ButtonState.Pressed && shootTimer <= 0)
         {
-            _laserSfx.Play(0.1f, 0.2f, 0f); // Very quiet laser to save your ears
+            _laserSfx.Play(0.1f, 0.2f, 0f); 
             playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle)) * 750f));
             shootTimer = 0.18f;
         }
@@ -148,17 +157,13 @@ public class Game1 : Game
 
             if (Vector2.Distance(player.position, enemies[i].position) < 42)
             {
-                // Player Died - Deep explosion
                 _explosionSfx.Play(0.8f, -0.4f, 0f); 
-                
-                if (score > highScore) {
-                    highScore = score;
-                    // If they break record EXACTLY as they die, play it loud on the game over screen!
-                    if (!highScoreBeaten) {
-                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.6f, Volume = 1.0f, Pitch = 0.8f });
-                    }
-                }
+                if (score > highScore) highScore = score;
                 currentState = GameState.GameOver;
+                
+                if (highScoreBeaten) {
+                    _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.5f, Volume = 1.0f, Pitch = 0.8f });
+                }
             }
 
             for (int j = playerBullets.Count - 1; j >= 0; j--)
@@ -174,7 +179,6 @@ public class Game1 : Game
 
                     if (score > highScore && highScore > 0 && !highScoreBeaten)
                     {
-                        // Play the High Score sound with a delay so it's the "Star" of the audio
                         _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.4f, Volume = 1.0f, Pitch = 0.8f });
                         highScoreBeaten = true;
                     }
@@ -212,7 +216,14 @@ public class Game1 : Game
             foreach (var b in playerBullets)
                 _spriteBatch.Draw(dotTexture, b.position, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
 
-            _spriteBatch.DrawString(_font, $"SCORE: {score}", new Vector2(20, 20), Color.White);
+            string scoreLabel = highScoreBeaten ? "NEW RECORD: " : "SCORE: ";
+            Color scoreColor = highScoreBeaten ? Color.Gold : Color.White;
+            _spriteBatch.DrawString(_font, $"{scoreLabel}{score}", new Vector2(20, 20), scoreColor);
+
+            string hiLabel = $"HI-SCORE: {Math.Max(score, highScore)}";
+            Vector2 hiSize = _font.MeasureString(hiLabel);
+            _spriteBatch.DrawString(_font, hiLabel, new Vector2(screenWidth - hiSize.X - 20, 20), Color.Gray);
+
             _spriteBatch.DrawString(_font, "W: MOVE | LMB: SHOOT | MOUSE: AIM", new Vector2(20, 760), Color.Gray);
 
             if (currentState == GameState.GameOver)
@@ -220,9 +231,10 @@ public class Game1 : Game
                 DrawCenteredText("GAME OVER", mid.Y - 80, Color.Red);
                 DrawCenteredText($"FINAL SCORE: {score}", mid.Y - 20, Color.White);
                 
-                // Color high score gold if you beat it!
-                Color hsColor = highScoreBeaten ? Color.Gold : Color.Gray;
-                DrawCenteredText($"HIGH SCORE: {highScore}", mid.Y + 20, hsColor);
+                if (highScoreBeaten)
+                    DrawCenteredText("NEW HIGH SCORE!", mid.Y + 20, Color.Gold);
+                else
+                    DrawCenteredText($"HIGH SCORE: {highScore}", mid.Y + 20, Color.Gray);
                 
                 DrawCenteredText("PRESS SPACE TO RESTART", mid.Y + 80, Color.Yellow);
             }
