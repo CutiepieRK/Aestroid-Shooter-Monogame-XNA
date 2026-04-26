@@ -4,17 +4,24 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Linq; // Added this to fix the OrderBy error
 
 namespace Aestroid;
 
-public enum GameState { MainMenu, Playing, Paused, Shop, GameOver }
+public enum GameState { MainMenu, Playing, Paused, Shop, Settings, GameOver }
 
+// --- GLOBAL SETTINGS ---
+public static class Prefs {
+    public static bool AutoAim = true;
+    public static float MasterVolume = 1.0f;
+}
+
+// --- PERSISTENT PROGRESSION ---
 public static class SaveData {
     public static int Money = 0;
     public static int FireRateLevel = 0;
     public static int SpeedLevel = 0;
-    public static float GetFireRate() => Math.Max(0.07f, 0.30f - (FireRateLevel * 0.03f));
+    public static float GetFireRate() => Math.Max(0.06f, 0.28f - (FireRateLevel * 0.025f));
     public static float GetSpeed() => 300f + (SpeedLevel * 35f);
 }
 
@@ -71,19 +78,21 @@ public class Game1 : Game {
             case GameState.Playing: UpdateGame(dt); break;
             case GameState.Paused: UpdatePause(); break;
             case GameState.Shop: UpdateShop(); break;
+            case GameState.Settings: UpdateSettings(); break;
             case GameState.GameOver: if (Input.Pressed(Keys.Space) || Input.Pressed(Buttons.A)) state = GameState.MainMenu; break;
         }
         base.Update(gameTime);
     }
 
     private void UpdateMenu() {
-        if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) menuSelect = 0;
-        if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) menuSelect = 1;
+        if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) menuSelect = Math.Max(0, menuSelect - 1);
+        if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) menuSelect = Math.Min(2, menuSelect + 1);
 
         if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A)) {
             _click.Play();
             if (menuSelect == 0) StartNewGame();
-            else state = GameState.Shop;
+            else if (menuSelect == 1) { state = GameState.Shop; menuSelect = 0; }
+            else { state = GameState.Settings; menuSelect = 0; }
         }
     }
 
@@ -94,56 +103,75 @@ public class Game1 : Game {
     }
 
     private void UpdatePause() {
+        if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) menuSelect = Math.Max(0, menuSelect - 1);
+        if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) menuSelect = Math.Min(2, menuSelect + 1);
+
+        if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A)) {
+            _click.Play();
+            if (menuSelect == 0) state = GameState.Playing;
+            else if (menuSelect == 1) { state = GameState.Shop; menuSelect = 0; }
+            else { state = GameState.Settings; menuSelect = 0; }
+        }
+        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.Start)) state = GameState.Playing;
+    }
+
+    private void UpdateSettings() {
         if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) menuSelect = 0;
         if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) menuSelect = 1;
 
         if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A)) {
-            if (menuSelect == 0) state = GameState.Playing;
-            else state = GameState.Shop;
+            _click.Play();
+            if (menuSelect == 0) Prefs.AutoAim = !Prefs.AutoAim;
         }
-        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.Start)) state = GameState.Playing;
+        
+        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.B)) {
+            // Return to wherever we came from (Pause or Main Menu)
+            state = (rocks.Count > 0) ? GameState.Paused : GameState.MainMenu;
+            menuSelect = 0;
+        }
     }
 
     private void UpdateGame(float dt) {
         if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.Start)) { state = GameState.Paused; menuSelect = 0; return; }
 
-        // --- AUTO-AIM LOGIC ---
-        Enemy closest = null;
-        float minDist = 500f; // Targeting range
-        foreach (var r in rocks) {
-            float d = Vector2.Distance(player.position, r.position);
-            if (d < minDist) { minDist = d; closest = r; }
+        // --- AIMING ---
+        if (Prefs.AutoAim) {
+            // Find closest rock within 600 pixels
+            var target = rocks.OrderBy(r => Vector2.Distance(player.position, r.position)).FirstOrDefault();
+            if (target != null && Vector2.Distance(player.position, target.position) < 600f) {
+                Vector2 lookDir = target.position - player.position;
+                player.rotation = (float)Math.Atan2(lookDir.Y, lookDir.X) + MathHelper.PiOver2;
+            }
+        } else {
+            Vector2 mouseDir = new Vector2(Input.M.X, Input.M.Y) - player.position;
+            player.rotation = (float)Math.Atan2(mouseDir.Y, mouseDir.X) + MathHelper.PiOver2;
         }
 
-        if (closest != null) {
-            Vector2 lookDir = closest.position - player.position;
-            player.rotation = (float)Math.Atan2(lookDir.Y, lookDir.X) + MathHelper.PiOver2;
-            
-            shootTimer -= dt;
-            if (shootTimer <= 0) {
-                _laser.Play(0.1f, 0, 0);
-                Vector2 bDir = Vector2.Normalize(lookDir);
-                bullets.Add(new Bullet(player.position, bDir * 700f));
-                shootTimer = SaveData.GetFireRate();
-            }
+        // --- SHOOTING (NOT AUTO) ---
+        shootTimer -= dt;
+        bool fire = Input.K.IsKeyDown(Keys.Space) || Input.M.LeftButton == ButtonState.Pressed || Input.G.Triggers.Right > 0.5f || Input.G.IsButtonDown(Buttons.A);
+        
+        if (fire && shootTimer <= 0) {
+            _laser.Play(0.12f, 0, 0);
+            Vector2 bDir = new Vector2((float)Math.Cos(player.rotation - MathHelper.PiOver2), (float)Math.Sin(player.rotation - MathHelper.PiOver2));
+            bullets.Add(new Bullet(player.position, bDir * 750f));
+            shootTimer = SaveData.GetFireRate();
         }
 
         // --- MOVEMENT ---
         Vector2 move = Vector2.Zero;
-        if (Input.K.IsKeyDown(Keys.W) || Input.K.IsKeyDown(Keys.Up)) move.Y = -1;
-        if (Input.K.IsKeyDown(Keys.S) || Input.K.IsKeyDown(Keys.Down)) move.Y = 1;
-        if (Input.K.IsKeyDown(Keys.A) || Input.K.IsKeyDown(Keys.Left)) move.X = -1;
-        if (Input.K.IsKeyDown(Keys.D) || Input.K.IsKeyDown(Keys.Right)) move.X = 1;
-        
-        if (Input.G.ThumbSticks.Left.Length() > 0.1f) 
-            move = new Vector2(Input.G.ThumbSticks.Left.X, -Input.G.ThumbSticks.Left.Y);
+        if (Input.K.IsKeyDown(Keys.W)) move.Y = -1;
+        if (Input.K.IsKeyDown(Keys.S)) move.Y = 1;
+        if (Input.K.IsKeyDown(Keys.A)) move.X = -1;
+        if (Input.K.IsKeyDown(Keys.D)) move.X = 1;
+        if (Input.G.ThumbSticks.Left.Length() > 0.1f) move = new Vector2(Input.G.ThumbSticks.Left.X, -Input.G.ThumbSticks.Left.Y);
 
         if (move != Vector2.Zero) {
             move.Normalize();
             player.position += move * SaveData.GetSpeed() * dt;
         }
 
-        // --- ROCKS & COLLISION ---
+        // --- LOGIC ---
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
             rocks.Add(new Enemy(new Vector2(rng.Next(800), -50), player.position, rng));
@@ -153,11 +181,10 @@ public class Game1 : Game {
         for (int i = rocks.Count - 1; i >= 0; i--) {
             rocks[i].Update(dt);
             if (Vector2.Distance(player.position, rocks[i].position) < 30) { _boom.Play(); state = GameState.GameOver; }
-
             for (int j = bullets.Count - 1; j >= 0; j--) {
                 if (Vector2.Distance(bullets[j].position, rocks[i].position) < 35) {
                     rocks.RemoveAt(i); bullets.RemoveAt(j);
-                    score += 100; SaveData.Money += 15; _boom.Play(0.3f, 0.5f, 0);
+                    score += 100; SaveData.Money += 20; _boom.Play(0.3f, 0.2f, 0);
                     break;
                 }
             }
@@ -171,49 +198,59 @@ public class Game1 : Game {
         if (Input.Pressed(Keys.D) || Input.Pressed(Buttons.DPadRight)) menuSelect = 1;
         
         if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A)) {
-            if (menuSelect == 0 && SaveData.Money >= 250) { SaveData.Money -= 250; SaveData.FireRateLevel++; _click.Play(); }
-            if (menuSelect == 1 && SaveData.Money >= 250) { SaveData.Money -= 250; SaveData.SpeedLevel++; _click.Play(); }
+            if (menuSelect == 0 && SaveData.Money >= 300) { SaveData.Money -= 300; SaveData.FireRateLevel++; _click.Play(); }
+            if (menuSelect == 1 && SaveData.Money >= 300) { SaveData.Money -= 300; SaveData.SpeedLevel++; _click.Play(); }
         }
         
-        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.B)) state = GameState.Paused;
+        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.B)) {
+            state = (rocks.Count > 0) ? GameState.Paused : GameState.MainMenu;
+            menuSelect = 0;
+        }
     }
 
     protected override void Draw(GameTime gameTime) {
         GraphicsDevice.Clear(Color.Black);
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        if (state == GameState.Playing || state == GameState.Paused || state == GameState.Shop) {
+        // Always draw the game scene if playing, paused, or shopping
+        if (state != GameState.MainMenu && state != GameState.GameOver) {
             _spriteBatch.Draw(shipTex, player.position, null, Color.White, player.rotation, player.origin, 4f, SpriteEffects.None, 0f);
             foreach (var r in rocks) _spriteBatch.Draw(rockTex, r.position, null, Color.White, r.rotation, new Vector2(25,25), 4f, SpriteEffects.None, 0f);
-            foreach (var b in bullets) _spriteBatch.Draw(pixel, new Rectangle((int)b.position.X, (int)b.position.Y, 10, 10), Color.White); // WHITE BULLETS
-            
-            // HUD
-            _spriteBatch.DrawString(_font, $"CASH: ${SaveData.Money}", new Vector2(20, 20), Color.Gold);
-            _spriteBatch.DrawString(_font, $"SCORE: {score}", new Vector2(20, 50), Color.White);
+            foreach (var b in bullets) _spriteBatch.Draw(pixel, new Rectangle((int)b.position.X, (int)b.position.Y, 10, 10), Color.White);
+            _spriteBatch.DrawString(_font, $"CASH: ${SaveData.Money}   SCORE: {score}", new Vector2(20, 20), Color.Gold);
         }
 
         if (state == GameState.MainMenu) {
-            DrawCentered("AESTROID ARCADE", 250, Color.White, 1.5f);
-            DrawBtn("PILOT MISSION", 400, menuSelect == 0);
-            DrawBtn("EQUIPMENT SHOP", 470, menuSelect == 1);
+            DrawCentered("AESTROID ARCADE", 200, Color.White, 1.5f);
+            DrawBtn("PILOT MISSION", 350, menuSelect == 0);
+            DrawBtn("STATION SHOP", 410, menuSelect == 1);
+            DrawBtn("SETTINGS", 470, menuSelect == 2);
         }
         else if (state == GameState.Paused) {
-            _spriteBatch.Draw(pixel, new Rectangle(0, 0, 800, 800), Color.Black * 0.5f);
-            DrawCentered("PAUSED", 300, Color.Cyan, 1.2f);
-            DrawBtn("RESUME", 400, menuSelect == 0);
-            DrawBtn("VISIT SHOP", 470, menuSelect == 1);
+            _spriteBatch.Draw(pixel, new Rectangle(0, 0, 800, 800), Color.Black * 0.6f);
+            DrawCentered("PAUSED", 250, Color.Cyan, 1.2f);
+            DrawBtn("RESUME", 350, menuSelect == 0);
+            DrawBtn("VISIT SHOP", 410, menuSelect == 1);
+            DrawBtn("SETTINGS", 470, menuSelect == 2);
+        }
+        else if (state == GameState.Settings) {
+            _spriteBatch.Draw(pixel, new Rectangle(0, 0, 800, 800), Color.Black * 0.9f);
+            DrawCentered("SETTINGS", 200, Color.White, 1.2f);
+            DrawBtn($"AUTO-AIM: {(Prefs.AutoAim ? "ON" : "OFF")}", 350, menuSelect == 0);
+            DrawCentered("CONTROLS: WASD to MOVE | SPACE / RT / [A] to SHOOT", 480, Color.Gray, 0.7f);
+            DrawCentered("PRESS [B] OR ESC TO CLOSE", 600, Color.DimGray);
         }
         else if (state == GameState.Shop) {
             _spriteBatch.Draw(pixel, new Rectangle(0, 0, 800, 800), Color.Black * 0.8f);
-            DrawCentered("STATION SHOP - ALL UPGRADES $250", 200, Color.Gold);
-            DrawCentered($"CURRENT CASH: ${SaveData.Money}", 250, Color.White);
+            DrawCentered("STATION SHOP - UPGRADES $300", 200, Color.Gold);
             DrawBtn($"FIRE RATE (LVL {SaveData.FireRateLevel})", 400, menuSelect == 0, 200);
             DrawBtn($"THRUSTERS (LVL {SaveData.SpeedLevel})", 400, menuSelect == 1, 600);
-            DrawCentered("PRESS [B] TO GO BACK", 600, Color.Gray);
+            DrawCentered("PRESS [B] TO EXIT SHOP", 600, Color.Gray);
         }
         else if (state == GameState.GameOver) {
             DrawCentered("SHIP DESTROYED", 350, Color.Red, 1.5f);
-            DrawCentered("PRESS [A] FOR MAIN MENU", 450, Color.White);
+            DrawCentered($"FINAL SCORE: {score}", 410, Color.White);
+            DrawCentered("PRESS [A] OR SPACE FOR MENU", 500, Color.Yellow);
         }
 
         _spriteBatch.End();
@@ -221,7 +258,7 @@ public class Game1 : Game {
 
     private void DrawBtn(string t, float y, bool sel, float x = 400) {
         Color c = sel ? Color.Yellow : Color.Gray;
-        float scale = sel ? 1.1f : 0.9f;
+        float scale = sel ? 1.15f : 0.9f;
         Vector2 size = _font.MeasureString(t) * scale;
         _spriteBatch.DrawString(_font, t, new Vector2(x - size.X/2, y), c, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
     }
@@ -232,6 +269,7 @@ public class Game1 : Game {
     }
 }
 
+// --- SHARED INPUT ---
 public static class Input {
     public static KeyboardState K, PK;
     public static GamePadState G, PG;
