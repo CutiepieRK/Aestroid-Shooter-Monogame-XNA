@@ -6,18 +6,20 @@ namespace Aestroid;
 public class Sprite
 {
     public Texture2D texture;
-    public Rectangle rect;
+    public Vector2 position;
+    public Vector2 origin;
+    public float scale;
     public Color color;
+    public float rotation;
+    public float speed;
 
-    public Sprite(Texture2D texture, Vector2 position, float scale, Color color)
+    public Sprite(Texture2D texture, Vector2 position, float scale, Color color, float speed)
     {
         this.texture = texture;
+        this.position = position;
+        this.scale = scale;
         this.color = color;
-        
-        // Calculate the rectangle using texture size * multiplier
-        int width = (int)(texture.Width * scale);
-        int height = (int)(texture.Height * scale);
-        
-        this.rect = new Rectangle((int)position.X, (int)position.Y, width, height);
+        this.speed = speed;
+        this.origin = new Vector2(texture.Width / 2f, texture.Height / 2f);
     }
 }

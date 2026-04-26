@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <SourceFile>/home/arish/DEV/Aestroid/Aestroid/Content/File.spritefont</SourceFile>
+  <SourceTime>2026-04-26T11:55:56.0985426+06:00</SourceTime>
+  <DestFile>/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/Content/File.xnb</DestFile>
+  <DestTime>2026-04-26T11:56:01.5323018+06:00</DestTime>
+  <Importer>FontDescriptionImporter</Importer>
+  <ImporterTime>2025-10-20T20:25:32+06:00</ImporterTime>
+  <Processor>FontDescriptionProcessor</Processor>
+  <ProcessorTime>2025-10-20T20:25:32+06:00</ProcessorTime>
+  <Parameters>
+    <Key>PremultiplyAlpha</Key>
+    <Value>True</Value>
+  </Parameters>
+  <Parameters>
+    <Key>TextureFormat</Key>
+    <Value>Compressed</Value>
+  </Parameters>
+  <Dependencies />
+  <BuildAsset />
+  <BuildOutput />
+</PipelineBuildEvent>

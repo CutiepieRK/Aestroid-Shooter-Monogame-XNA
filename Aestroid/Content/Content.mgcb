@@ -13,6 +13,13 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin File.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:File.spritefont
+
 #begin ROCKS.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -24,6 +31,13 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:ROCKS.png
+
+#begin ScoreFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:ScoreFont.spritefont
 
 #begin SPACE SHIP.png
 /importer:TextureImporter
