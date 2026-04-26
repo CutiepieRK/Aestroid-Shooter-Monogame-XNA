@@ -208,3 +208,8 @@
 /home/arish/DEV/Aestroid/Aestroid/obj/Release/net9.0/linux-x64/Aestroid.pdb
 /home/arish/DEV/Aestroid/Aestroid/obj/Release/net9.0/linux-x64/Aestroid.genruntimeconfig.cache
 /home/arish/DEV/Aestroid/Aestroid/obj/Release/net9.0/linux-x64/ref/Aestroid.dll
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/Content/click.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/Content/explosion.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/Content/laserShoot (1).xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/Content/pickupCoin.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/linux-x64/Content/powerUp.xnb

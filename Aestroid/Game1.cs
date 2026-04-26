@@ -145,7 +145,7 @@ public class Game1 : Game
             }
 
             // ENEMY DIES (Explosion + Coin)
-            for (int j = playerBullets.Count - j >= 0; j--)
+            for (int j = playerBullets.Count - 1; j >= 0; j--)
             {
                 if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 32)
                 {

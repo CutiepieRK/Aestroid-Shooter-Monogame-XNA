@@ -1,5 +1,5 @@
 # Define your custom output directory
-OUTPUT_DIR="$HOME/arish/Builds/Monogame/Aestroid"
+OUTPUT_DIR="$HOME/Builds/Monogame/Aestroid"
 
 # Publish for Linux (x64)
 dotnet publish -c Release -r linux-x64 --self-contained -o "$OUTPUT_DIR/linux"
