@@ -1,0 +1,3 @@
+Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
+"/home/arish/DEV/Aestroid/Aestroid/Content/ROCKS.png","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/ROCKS.xnb","TextureProcessor","Texture2DContent",240,341,0.1122781
+"/home/arish/DEV/Aestroid/Aestroid/Content/SPACE SHIP.png","/home/arish/DEV/Aestroid/Aestroid/Content/bin/DesktopGL/SPACE SHIP.xnb","TextureProcessor","Texture2DContent",145,341,0.1694082
