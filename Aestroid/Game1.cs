@@ -9,22 +9,28 @@ namespace Aestroid;
 
 public enum GameState { Start, Playing, GameOver }
 
+// Small helper to handle sound sequencing
+public class DelayedSound {
+    public SoundEffect Sfx;
+    public float Timer;
+    public float Volume;
+    public float Pitch;
+}
+
 public class Game1 : Game
 {
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private SpriteFont _font;
 
-    // SFX Variables
     private SoundEffect _clickSfx, _explosionSfx, _laserSfx, _pickupSfx, _powerUpSfx;
+    private List<DelayedSound> _soundQueue = new List<DelayedSound>();
 
-    // Game Objects
     Sprite player;
     Texture2D dotTexture, enemyTexture;
     List<Bullet> playerBullets = new List<Bullet>();
     List<Enemy> enemies = new List<Enemy>();
 
-    // Game Logic
     GameState currentState = GameState.Start;
     int score = 0, highScore = 0;
     bool highScoreBeaten = false;
@@ -51,13 +57,10 @@ public class Game1 : Game
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-        
-        // Textures
         player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4.0f, Color.White, 300f);
         enemyTexture = Content.Load<Texture2D>("ROCKS"); 
         _font = Content.Load<SpriteFont>("ScoreFont");
 
-        // Audio
         _clickSfx = Content.Load<SoundEffect>("click");
         _explosionSfx = Content.Load<SoundEffect>("explosion");
         _laserSfx = Content.Load<SoundEffect>("laserShoot (1)");
@@ -70,15 +73,14 @@ public class Game1 : Game
 
     private void ResetGame()
     {
-        // LOUD CLICK on Start
         _clickSfx.Play(1.0f, 0.4f, 0f); 
-
         score = 0;
         highScoreBeaten = false;
         currentSpawnRate = 2.0f;
         difficultyTimer = 0f;
         enemies.Clear();
         playerBullets.Clear();
+        _soundQueue.Clear();
         player.position = new Vector2(screenWidth / 2, screenHeight / 2);
         currentState = GameState.Playing;
     }
@@ -88,17 +90,26 @@ public class Game1 : Game
         InputManager.Update();
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+        // Handle Sound Sequence Timer
+        for (int i = _soundQueue.Count - 1; i >= 0; i--)
+        {
+            _soundQueue[i].Timer -= deltaTime;
+            if (_soundQueue[i].Timer <= 0)
+            {
+                _soundQueue[i].Sfx.Play(_soundQueue[i].Volume, _soundQueue[i].Pitch, 0f);
+                _soundQueue.RemoveAt(i);
+            }
+        }
+
         if (currentState != GameState.Playing)
         {
             if (Keyboard.GetState().IsKeyDown(Keys.Space)) ResetGame();
             return;
         }
 
-        // Difficulty Increase
         difficultyTimer += deltaTime;
         currentSpawnRate = Math.Max(0.35f, 2.0f - (float)Math.Floor(difficultyTimer / 10f) * 0.2f);
 
-        // Input Logic
         MouseState mouse = Mouse.GetState();
         Vector2 dirToMouse = new Vector2(mouse.X, mouse.Y) - player.position;
         player.rotation = (float)Math.Atan2(dirToMouse.Y, dirToMouse.X) + MathHelper.PiOver2;
@@ -110,21 +121,19 @@ public class Game1 : Game
             player.position += forward * player.speed * deltaTime;
         }
 
-        // Shooting (Volume Lowered to help you hear the PowerUp)
         if (shootTimer > 0) shootTimer -= deltaTime;
         if (mouse.LeftButton == ButtonState.Pressed && shootTimer <= 0)
         {
-            _laserSfx.Play(0.2f, 0f, 0f); 
+            _laserSfx.Play(0.15f, 0f, 0f); 
             playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle)) * 750f));
             shootTimer = 0.18f;
         }
 
-        // 4-Sided Random Spawner
         spawnTimer -= deltaTime;
         if (spawnTimer <= 0)
         {
             Vector2 spawnPos = Vector2.Zero;
-            int side = rng.Next(4); // 0-Top, 1-Bottom, 2-Left, 3-Right
+            int side = rng.Next(4);
             if (side == 0) spawnPos = new Vector2(rng.Next(screenWidth), -60);
             else if (side == 1) spawnPos = new Vector2(rng.Next(screenWidth), screenHeight + 60);
             else if (side == 2) spawnPos = new Vector2(-60, rng.Next(screenHeight));
@@ -134,38 +143,37 @@ public class Game1 : Game
             spawnTimer = currentSpawnRate;
         }
 
-        // Collision Logic
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             enemies[i].Update(deltaTime);
 
-            // Bounds Check
             if (Vector2.Distance(new Vector2(400, 400), enemies[i].position) > 1300) { enemies.RemoveAt(i); continue; }
 
-            // Rock vs Player
             if (Vector2.Distance(player.position, enemies[i].position) < 42)
             {
-                _explosionSfx.Play(1.0f, 0f, 0f);
+                _explosionSfx.Play(1.0f, -0.2f, 0f); // Deeper explosion for player
                 if (score > highScore) highScore = score;
                 currentState = GameState.GameOver;
             }
 
-            // Rock vs Bullet
             for (int j = playerBullets.Count - 1; j >= 0; j--)
             {
                 if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 35)
                 {
-                    _explosionSfx.Play(0.6f, (float)rng.NextDouble() - 0.5f, 0f);
-                    _pickupSfx.Play(0.6f, 0f, 0f);
+                    // 1. Play immediate explosion
+                    _explosionSfx.Play(0.6f, (float)rng.NextDouble() - 0.2f, 0f);
                     
+                    // 2. Queue the Coin sound to play 0.2 seconds later
+                    _soundQueue.Add(new DelayedSound { Sfx = _pickupSfx, Timer = 0.2f, Volume = 0.7f, Pitch = 0.1f });
+
                     enemies.RemoveAt(i);
                     playerBullets.RemoveAt(j);
                     score += 100;
 
-                    // HIGH VOLUME POWERUP SFX
                     if (score > highScore && highScore > 0 && !highScoreBeaten)
                     {
-                        _powerUpSfx.Play(1.0f, 0.5f, 0f); 
+                        // 3. Queue PowerUp sound to play 0.5 seconds later so it stands out!
+                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.5f, Volume = 1.0f, Pitch = 0.5f });
                         highScoreBeaten = true;
                     }
                     break;
@@ -173,7 +181,6 @@ public class Game1 : Game
             }
         }
 
-        // Bullet Updates
         for (int i = playerBullets.Count - 1; i >= 0; i--)
         {
             playerBullets[i].position += playerBullets[i].velocity * deltaTime;
