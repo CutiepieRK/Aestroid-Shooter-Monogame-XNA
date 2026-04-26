@@ -1,0 +1,25 @@
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Aestroid
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Content/File.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Content/ROCKS.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Content/ScoreFont.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Content/SPACE SHIP.xnb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Aestroid.dll
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Aestroid.deps.json
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Aestroid.runtimeconfig.json
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/Aestroid.pdb
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/MonoGame.Framework.dll
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/NVorbis.dll
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/android-arm/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/android-arm64/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/android-x64/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/android-x86/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/ios-arm64/native/libopenal.a
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/iossimulator-arm64/native/libopenal.a
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/iossimulator-x64/native/libopenal.a
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/linux-arm64/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/linux-x64/native/libopenal.so
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/osx/native/libopenal.dylib
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/win-x64/native/openal.dll
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/linux-x64/native/libSDL2-2.0.so.0
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/osx/native/libSDL2-2.0.0.dylib
+/home/arish/DEV/Aestroid/Aestroid/bin/Release/net9.0/publish/runtimes/win-x64/native/SDL2.dll

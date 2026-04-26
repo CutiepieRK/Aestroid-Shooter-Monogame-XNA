@@ -174,7 +174,7 @@ public class Game1 : Game
             foreach (var e in enemies)
             {
                 Vector2 eOrigin = new Vector2(enemyTexture.Width / 2, enemyTexture.Height / 2);
-                _spriteBatch.Draw(enemyTexture, e.position, null, Color.Red, e.rotation + MathHelper.PiOver2, eOrigin, 4f, SpriteEffects.None, 0f);
+                _spriteBatch.Draw(enemyTexture, e.position, null, Color.White, e.rotation + MathHelper.PiOver2, eOrigin, 4f, SpriteEffects.None, 0f);
             }
 
             foreach (var b in playerBullets) 
