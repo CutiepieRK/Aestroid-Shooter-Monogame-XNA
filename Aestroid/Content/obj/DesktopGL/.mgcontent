@@ -6,11 +6,9 @@
   <SourceFiles>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/File.spritefont</File>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/ROCKS.png</File>
-    <File>/home/arish/DEV/Aestroid/Aestroid/Content/ScoreFont.spritefont</File>
     <File>/home/arish/DEV/Aestroid/Aestroid/Content/SPACE SHIP.png</File>
   </SourceFiles>
   <DestFiles>
-    <File xsi:nil="true" />
     <File xsi:nil="true" />
     <File xsi:nil="true" />
     <File xsi:nil="true" />

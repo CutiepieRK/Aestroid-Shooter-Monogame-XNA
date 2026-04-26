@@ -6,31 +6,32 @@ using System.Collections.Generic;
 
 namespace Aestroid;
 
-// States to manage the game flow
 public enum GameState { Start, Playing, GameOver }
 
 public class Game1 : Game
 {
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
-    private SpriteFont _font; // You need to add a SpriteFont in MGCB!
+    private SpriteFont _font;
 
-    // Game Objects
     Sprite player;
     Texture2D dotTexture;
     Texture2D enemyTexture;
     List<Bullet> playerBullets = new List<Bullet>();
     List<Enemy> enemies = new List<Enemy>();
 
-    // Game Logic
     GameState currentState = GameState.Start;
     int score = 0;
     int highScore = 0;
     float shootTimer = 0f;
     float spawnTimer = 2.0f;
     float difficultyTimer = 0f;
-    float currentSpawnRate = 2.0f; // Starts at 2 seconds
+    float currentSpawnRate = 2.0f;
     Random rng = new Random();
+
+    // Screen dimensions for easy centering
+    int screenWidth = 800;
+    int screenHeight = 800;
 
     public Game1()
     {
@@ -38,13 +39,14 @@ public class Game1 : Game
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
 
-        Window.Title = ("Aestroid Shooter");
+        // FIXED: Property assignment instead of method call
+        Window.Title = "Aestroid Shooter";
     }
 
     protected override void Initialize()
     {
-        _graphics.PreferredBackBufferWidth = 800;
-        _graphics.PreferredBackBufferHeight = 800;
+        _graphics.PreferredBackBufferWidth = screenWidth;
+        _graphics.PreferredBackBufferHeight = screenHeight;
         _graphics.ApplyChanges();
         base.Initialize();
     }
@@ -53,10 +55,9 @@ public class Game1 : Game
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         
-        // --- LOAD YOUR ASSETS HERE ---
         player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4.0f, Color.White, 300f);
-        enemyTexture = Content.Load<Texture2D>("ROCKS"); // Use "ENEMY_SPRITE" if fixed
-        _font = Content.Load<SpriteFont>("ScoreFont"); // Create a SpriteFont file in MGCB named 'ScoreFont'
+        enemyTexture = Content.Load<Texture2D>("ROCKS"); 
+        _font = Content.Load<SpriteFont>("ScoreFont");
 
         dotTexture = new Texture2D(GraphicsDevice, 1, 1);
         dotTexture.SetData(new[] { Color.White });
@@ -69,7 +70,7 @@ public class Game1 : Game
         difficultyTimer = 0f;
         enemies.Clear();
         playerBullets.Clear();
-        player.position = new Vector2(400, 400);
+        player.position = new Vector2(screenWidth / 2, screenHeight / 2);
         currentState = GameState.Playing;
     }
 
@@ -84,12 +85,9 @@ public class Game1 : Game
             return;
         }
 
-        // --- DIFFICULTY SCALING ---
         difficultyTimer += deltaTime;
-        // Every 10 seconds, decrease spawn time by 0.2s (minimum 0.4s)
         currentSpawnRate = Math.Max(0.4f, 2.0f - (float)Math.Floor(difficultyTimer / 10f) * 0.2f);
 
-        // --- PLAYER LOGIC ---
         MouseState mouse = Mouse.GetState();
         Vector2 dirToMouse = new Vector2(mouse.X, mouse.Y) - player.position;
         player.rotation = (float)Math.Atan2(dirToMouse.Y, dirToMouse.X) + MathHelper.PiOver2;
@@ -109,29 +107,23 @@ public class Game1 : Game
             shootTimer = 0.2f;
         }
 
-        // --- ENEMY SPAWNING ---
         spawnTimer -= deltaTime;
         if (spawnTimer <= 0)
         {
-            // Spawn randomly around the edges
-            Vector2 spawnPos = new Vector2(rng.Next(0, 800), -50);
-            enemies.Add(new Enemy(spawnPos));
+            enemies.Add(new Enemy(new Vector2(rng.Next(0, screenWidth), -50)));
             spawnTimer = currentSpawnRate; 
         }
 
-        // --- ENEMY UPDATES & COLLISION ---
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             enemies[i].Update(player.position, deltaTime);
 
-            // COLLISION: Enemy vs Player
             if (Vector2.Distance(player.position, enemies[i].position) < 40)
             {
                 if (score > highScore) highScore = score;
                 currentState = GameState.GameOver;
             }
 
-            // COLLISION: Player Bullet vs Enemy
             for (int j = playerBullets.Count - 1; j >= 0; j--)
             {
                 if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 32)
@@ -144,12 +136,11 @@ public class Game1 : Game
             }
         }
 
-        // --- BULLET MOVEMENT ---
         for (int i = playerBullets.Count - 1; i >= 0; i--)
         {
             playerBullets[i].position += playerBullets[i].velocity * deltaTime;
-            if (playerBullets[i].position.X < -50 || playerBullets[i].position.X > 850 || 
-                playerBullets[i].position.Y < -50 || playerBullets[i].position.Y > 850)
+            if (playerBullets[i].position.X < -50 || playerBullets[i].position.X > screenWidth + 50 || 
+                playerBullets[i].position.Y < -50 || playerBullets[i].position.Y > screenHeight + 50)
                 playerBullets.RemoveAt(i);
         }
 
@@ -161,37 +152,56 @@ public class Game1 : Game
         GraphicsDevice.Clear(Color.Black);
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
+        // Calculate screen middle
+        Vector2 screenMid = new Vector2(screenWidth / 2, screenHeight / 2);
+
         if (currentState == GameState.Start)
         {
-            _spriteBatch.DrawString(_font, "AESTROID SHOOTER", new Vector2(250, 300), Color.White);
-            _spriteBatch.DrawString(_font, "PRESS SPACE TO START", new Vector2(240, 350), Color.Yellow);
+            // CENTERED TITLE
+            string title = "AESTROID SHOOTER";
+            Vector2 titleSize = _font.MeasureString(title);
+            _spriteBatch.DrawString(_font, title, new Vector2(screenMid.X - titleSize.X / 2, screenMid.Y - 50), Color.White);
+
+            // CENTERED SUBTITLE
+            string subTitle = "PRESS SPACE TO START";
+            Vector2 subSize = _font.MeasureString(subTitle);
+            _spriteBatch.DrawString(_font, subTitle, new Vector2(screenMid.X - subSize.X / 2, screenMid.Y + 20), Color.Yellow);
         }
         else if (currentState == GameState.Playing || currentState == GameState.GameOver)
         {
-            // Draw Player
             _spriteBatch.Draw(player.texture, player.position, null, player.color, player.rotation, player.origin, player.scale, SpriteEffects.None, 0f);
 
-            // Draw Enemies
             foreach (var e in enemies)
             {
                 Vector2 eOrigin = new Vector2(enemyTexture.Width / 2, enemyTexture.Height / 2);
                 _spriteBatch.Draw(enemyTexture, e.position, null, Color.Red, e.rotation + MathHelper.PiOver2, eOrigin, 4f, SpriteEffects.None, 0f);
             }
 
-            // Draw Bullets
             foreach (var b in playerBullets) 
                 _spriteBatch.Draw(dotTexture, b.position, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
 
-            // UI
+            // SCORE AND CONTROLS (Static positions)
             _spriteBatch.DrawString(_font, $"SCORE: {score}", new Vector2(20, 20), Color.White);
             _spriteBatch.DrawString(_font, "W: MOVE | LMB: SHOOT | MOUSE: AIM", new Vector2(20, 760), Color.Gray);
 
             if (currentState == GameState.GameOver)
             {
-                _spriteBatch.DrawString(_font, "GAME OVER", new Vector2(320, 300), Color.Red);
-                _spriteBatch.DrawString(_font, $"FINAL SCORE: {score}", new Vector2(300, 340), Color.White);
-                _spriteBatch.DrawString(_font, $"HIGH SCORE: {highScore}", new Vector2(300, 370), Color.Gold);
-                _spriteBatch.DrawString(_font, "PRESS SPACE TO RESTART", new Vector2(240, 420), Color.Yellow);
+                // CENTERED GAME OVER TEXTS
+                string goText = "GAME OVER";
+                Vector2 goSize = _font.MeasureString(goText);
+                _spriteBatch.DrawString(_font, goText, new Vector2(screenMid.X - goSize.X / 2, screenMid.Y - 80), Color.Red);
+
+                string fsText = $"FINAL SCORE: {score}";
+                Vector2 fsSize = _font.MeasureString(fsText);
+                _spriteBatch.DrawString(_font, fsText, new Vector2(screenMid.X - fsSize.X / 2, screenMid.Y - 20), Color.White);
+
+                string hsText = $"HIGH SCORE: {highScore}";
+                Vector2 hsSize = _font.MeasureString(hsText);
+                _spriteBatch.DrawString(_font, hsText, new Vector2(screenMid.X - hsSize.X / 2, screenMid.Y + 20), Color.Gold);
+
+                string resText = "PRESS SPACE TO RESTART";
+                Vector2 resSize = _font.MeasureString(resText);
+                _spriteBatch.DrawString(_font, resText, new Vector2(screenMid.X - resSize.X / 2, screenMid.Y + 80), Color.Yellow);
             }
         }
 
