@@ -9,7 +9,6 @@ namespace Aestroid;
 
 public enum GameState { Start, Playing, GameOver }
 
-// Small helper to handle sound sequencing
 public class DelayedSound {
     public SoundEffect Sfx;
     public float Timer;
@@ -73,7 +72,7 @@ public class Game1 : Game
 
     private void ResetGame()
     {
-        _clickSfx.Play(1.0f, 0.4f, 0f); 
+        _clickSfx.Play(1.0f, 0.5f, 0f); 
         score = 0;
         highScoreBeaten = false;
         currentSpawnRate = 2.0f;
@@ -90,7 +89,7 @@ public class Game1 : Game
         InputManager.Update();
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-        // Handle Sound Sequence Timer
+        // Sound Processor (Works even in GameOver state)
         for (int i = _soundQueue.Count - 1; i >= 0; i--)
         {
             _soundQueue[i].Timer -= deltaTime;
@@ -124,7 +123,7 @@ public class Game1 : Game
         if (shootTimer > 0) shootTimer -= deltaTime;
         if (mouse.LeftButton == ButtonState.Pressed && shootTimer <= 0)
         {
-            _laserSfx.Play(0.15f, 0f, 0f); 
+            _laserSfx.Play(0.1f, 0.2f, 0f); // Very quiet laser to save your ears
             playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle)) * 750f));
             shootTimer = 0.18f;
         }
@@ -147,12 +146,18 @@ public class Game1 : Game
         {
             enemies[i].Update(deltaTime);
 
-            if (Vector2.Distance(new Vector2(400, 400), enemies[i].position) > 1300) { enemies.RemoveAt(i); continue; }
-
             if (Vector2.Distance(player.position, enemies[i].position) < 42)
             {
-                _explosionSfx.Play(1.0f, -0.2f, 0f); // Deeper explosion for player
-                if (score > highScore) highScore = score;
+                // Player Died - Deep explosion
+                _explosionSfx.Play(0.8f, -0.4f, 0f); 
+                
+                if (score > highScore) {
+                    highScore = score;
+                    // If they break record EXACTLY as they die, play it loud on the game over screen!
+                    if (!highScoreBeaten) {
+                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.6f, Volume = 1.0f, Pitch = 0.8f });
+                    }
+                }
                 currentState = GameState.GameOver;
             }
 
@@ -160,11 +165,8 @@ public class Game1 : Game
             {
                 if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 35)
                 {
-                    // 1. Play immediate explosion
-                    _explosionSfx.Play(0.6f, (float)rng.NextDouble() - 0.2f, 0f);
-                    
-                    // 2. Queue the Coin sound to play 0.2 seconds later
-                    _soundQueue.Add(new DelayedSound { Sfx = _pickupSfx, Timer = 0.2f, Volume = 0.7f, Pitch = 0.1f });
+                    _explosionSfx.Play(0.3f, (float)rng.NextDouble() - 0.2f, 0f);
+                    _soundQueue.Add(new DelayedSound { Sfx = _pickupSfx, Timer = 0.1f, Volume = 0.5f, Pitch = 0.3f });
 
                     enemies.RemoveAt(i);
                     playerBullets.RemoveAt(j);
@@ -172,8 +174,8 @@ public class Game1 : Game
 
                     if (score > highScore && highScore > 0 && !highScoreBeaten)
                     {
-                        // 3. Queue PowerUp sound to play 0.5 seconds later so it stands out!
-                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.5f, Volume = 1.0f, Pitch = 0.5f });
+                        // Play the High Score sound with a delay so it's the "Star" of the audio
+                        _soundQueue.Add(new DelayedSound { Sfx = _powerUpSfx, Timer = 0.4f, Volume = 1.0f, Pitch = 0.8f });
                         highScoreBeaten = true;
                     }
                     break;
@@ -217,7 +219,11 @@ public class Game1 : Game
             {
                 DrawCenteredText("GAME OVER", mid.Y - 80, Color.Red);
                 DrawCenteredText($"FINAL SCORE: {score}", mid.Y - 20, Color.White);
-                DrawCenteredText($"HIGH SCORE: {highScore}", mid.Y + 20, Color.Gold);
+                
+                // Color high score gold if you beat it!
+                Color hsColor = highScoreBeaten ? Color.Gold : Color.Gray;
+                DrawCenteredText($"HIGH SCORE: {highScore}", mid.Y + 20, hsColor);
+                
                 DrawCenteredText("PRESS SPACE TO RESTART", mid.Y + 80, Color.Yellow);
             }
         }
