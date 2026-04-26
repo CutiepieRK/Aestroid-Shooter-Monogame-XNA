@@ -14,18 +14,18 @@ public class Enemy
     {
         position = spawnPos;
         
-        // Direction from spawn point toward the player
+        // Directional vector toward player
         Vector2 direction = targetPos - position;
         direction.Normalize();
 
-        // Add random drift so they don't all go to the exact same center point
+        // Add random drift (chaos) to the trajectory
         float drift = (float)(rng.NextDouble() * 0.6 - 0.3); 
         float angle = (float)Math.Atan2(direction.Y, direction.X) + drift;
         
-        float speed = rng.Next(120, 250);
+        float speed = rng.Next(130, 260);
         velocity = new Vector2((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed);
 
-        // Random rotation speed for the "tumbling" effect
+        // Constant tumbling rotation
         rotationSpeed = (float)(rng.NextDouble() * 5 - 2.5); 
     }
 

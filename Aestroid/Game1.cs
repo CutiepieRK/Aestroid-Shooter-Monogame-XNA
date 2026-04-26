@@ -15,16 +15,16 @@ public class Game1 : Game
     private SpriteBatch _spriteBatch;
     private SpriteFont _font;
 
-    // Sounds
+    // SFX Variables
     private SoundEffect _clickSfx, _explosionSfx, _laserSfx, _pickupSfx, _powerUpSfx;
 
-    // Objects
+    // Game Objects
     Sprite player;
     Texture2D dotTexture, enemyTexture;
     List<Bullet> playerBullets = new List<Bullet>();
     List<Enemy> enemies = new List<Enemy>();
 
-    // Logic
+    // Game Logic
     GameState currentState = GameState.Start;
     int score = 0, highScore = 0;
     bool highScoreBeaten = false;
@@ -51,11 +51,13 @@ public class Game1 : Game
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
+        
+        // Textures
         player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4.0f, Color.White, 300f);
         enemyTexture = Content.Load<Texture2D>("ROCKS"); 
         _font = Content.Load<SpriteFont>("ScoreFont");
 
-        // Sound Loading
+        // Audio
         _clickSfx = Content.Load<SoundEffect>("click");
         _explosionSfx = Content.Load<SoundEffect>("explosion");
         _laserSfx = Content.Load<SoundEffect>("laserShoot (1)");
@@ -68,7 +70,9 @@ public class Game1 : Game
 
     private void ResetGame()
     {
-        _clickSfx.Play();
+        // LOUD CLICK on Start
+        _clickSfx.Play(1.0f, 0.4f, 0f); 
+
         score = 0;
         highScoreBeaten = false;
         currentSpawnRate = 2.0f;
@@ -90,11 +94,11 @@ public class Game1 : Game
             return;
         }
 
-        // Difficulty scaling
+        // Difficulty Increase
         difficultyTimer += deltaTime;
-        currentSpawnRate = Math.Max(0.3f, 2.0f - (float)Math.Floor(difficultyTimer / 8f) * 0.15f);
+        currentSpawnRate = Math.Max(0.35f, 2.0f - (float)Math.Floor(difficultyTimer / 10f) * 0.2f);
 
-        // Player Rotation & Movement
+        // Input Logic
         MouseState mouse = Mouse.GetState();
         Vector2 dirToMouse = new Vector2(mouse.X, mouse.Y) - player.position;
         player.rotation = (float)Math.Atan2(dirToMouse.Y, dirToMouse.X) + MathHelper.PiOver2;
@@ -106,21 +110,21 @@ public class Game1 : Game
             player.position += forward * player.speed * deltaTime;
         }
 
-        // Shooting
+        // Shooting (Volume Lowered to help you hear the PowerUp)
         if (shootTimer > 0) shootTimer -= deltaTime;
         if (mouse.LeftButton == ButtonState.Pressed && shootTimer <= 0)
         {
-            _laserSfx.Play(0.4f, 0f, 0f);
+            _laserSfx.Play(0.2f, 0f, 0f); 
             playerBullets.Add(new Bullet(player.position, new Vector2((float)Math.Cos(moveAngle), (float)Math.Sin(moveAngle)) * 750f));
             shootTimer = 0.18f;
         }
 
-        // 4-Sided Spawning
+        // 4-Sided Random Spawner
         spawnTimer -= deltaTime;
         if (spawnTimer <= 0)
         {
             Vector2 spawnPos = Vector2.Zero;
-            int side = rng.Next(4);
+            int side = rng.Next(4); // 0-Top, 1-Bottom, 2-Left, 3-Right
             if (side == 0) spawnPos = new Vector2(rng.Next(screenWidth), -60);
             else if (side == 1) spawnPos = new Vector2(rng.Next(screenWidth), screenHeight + 60);
             else if (side == 2) spawnPos = new Vector2(-60, rng.Next(screenHeight));
@@ -130,18 +134,18 @@ public class Game1 : Game
             spawnTimer = currentSpawnRate;
         }
 
-        // Enemy Updates & Collisions
+        // Collision Logic
         for (int i = enemies.Count - 1; i >= 0; i--)
         {
             enemies[i].Update(deltaTime);
 
-            // Cleanup off-screen rocks
-            if (Vector2.Distance(new Vector2(400, 400), enemies[i].position) > 1200) { enemies.RemoveAt(i); continue; }
+            // Bounds Check
+            if (Vector2.Distance(new Vector2(400, 400), enemies[i].position) > 1300) { enemies.RemoveAt(i); continue; }
 
             // Rock vs Player
             if (Vector2.Distance(player.position, enemies[i].position) < 42)
             {
-                _explosionSfx.Play();
+                _explosionSfx.Play(1.0f, 0f, 0f);
                 if (score > highScore) highScore = score;
                 currentState = GameState.GameOver;
             }
@@ -151,15 +155,17 @@ public class Game1 : Game
             {
                 if (Vector2.Distance(playerBullets[j].position, enemies[i].position) < 35)
                 {
-                    _explosionSfx.Play(0.5f, (float)rng.NextDouble() - 0.5f, 0f);
-                    _pickupSfx.Play(0.5f, 0f, 0f);
+                    _explosionSfx.Play(0.6f, (float)rng.NextDouble() - 0.5f, 0f);
+                    _pickupSfx.Play(0.6f, 0f, 0f);
+                    
                     enemies.RemoveAt(i);
                     playerBullets.RemoveAt(j);
                     score += 100;
 
+                    // HIGH VOLUME POWERUP SFX
                     if (score > highScore && highScore > 0 && !highScoreBeaten)
                     {
-                        _powerUpSfx.Play();
+                        _powerUpSfx.Play(1.0f, 0.5f, 0f); 
                         highScoreBeaten = true;
                     }
                     break;
@@ -167,7 +173,7 @@ public class Game1 : Game
             }
         }
 
-        // Bullets
+        // Bullet Updates
         for (int i = playerBullets.Count - 1; i >= 0; i--)
         {
             playerBullets[i].position += playerBullets[i].velocity * deltaTime;
