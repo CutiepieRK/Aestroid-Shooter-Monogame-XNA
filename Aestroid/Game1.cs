@@ -2,71 +2,36 @@
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Microsoft.Xna.Framework.Media;
 using System;
 using System.Collections.Generic;
 
 namespace Aestroid;
 
-public enum GameState { MainMenu, Options, Playing, Paused, GameOver, Shop }
+public enum GameState { MainMenu, Playing, Shop, GameOver }
 
-// --- PERSISTENT DATA ---
 public static class SaveData {
     public static int Money = 0;
     public static int FireRateLevel = 0;
     public static int SpeedLevel = 0;
-    public static int HighScore = 0;
-    public static float GetFireRate() => Math.Max(0.06f, 0.18f - (FireRateLevel * 0.015f));
-    public static float GetSpeed() => 300f + (SpeedLevel * 35f);
-}
-
-public class Objective {
-    public string Description;
-    public int Target, Current, Reward;
-    public bool IsComplete => Current >= Target;
-
-    public static Objective GenerateNew(Random rng) {
-        int level = (SaveData.FireRateLevel + SaveData.SpeedLevel) / 2 + 1;
-        return new Objective { Description = "Destroy Rocks", Target = 5 + (5 * level), Reward = 50 * level };
-    }
-}
-
-// --- FULL HYBRID INPUT MANAGER ---
-public static class Input {
-    public static KeyboardState K, PrevK;
-    public static MouseState M, PrevM;
-    public static GamePadState G, PrevG;
-
-    public static void Update() {
-        PrevK = K; K = Keyboard.GetState();
-        PrevM = M; M = Mouse.GetState();
-        PrevG = G; G = GamePad.GetState(PlayerIndex.One);
-    }
-
-    public static bool Pressed(Keys k) => K.IsKeyDown(k) && PrevK.IsKeyUp(k);
-    public static bool Pressed(Buttons b) => G.IsButtonDown(b) && PrevG.IsButtonUp(b);
-    public static bool LeftClick() => M.LeftButton == ButtonState.Pressed && PrevM.LeftButton == ButtonState.Released;
+    public static float GetFireRate() => Math.Max(0.08f, 0.25f - (FireRateLevel * 0.03f));
+    public static float GetSpeed() => 300f + (SpeedLevel * 40f);
 }
 
 public class Game1 : Game {
     private GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch;
     private SpriteFont _font;
-    private Texture2D dotTexture, enemyTexture;
-    private SoundEffect _laserSfx, _explosionSfx, _clickSfx, _powerUpSfx;
+    private Texture2D shipTex, rockTex, pixel;
+    private SoundEffect _laser, _boom, _click;
 
-    GameState currentState = GameState.MainMenu;
-    int selectedIndex = 0;
-    Rectangle[] menuButtons = new Rectangle[2];
-    Rectangle[] shopButtons = new Rectangle[2];
+    GameState state = GameState.MainMenu;
+    int menuSelect = 0;
+    float shootTimer, spawnTimer;
+    int score = 0;
 
     Sprite player;
-    List<Enemy> enemies = new List<Enemy>();
+    List<Enemy> rocks = new List<Enemy>();
     List<Bullet> bullets = new List<Bullet>();
-    Objective currentObjective;
-
-    int currentScore = 0;
-    float shootTimer, spawnTimer;
     Random rng = new Random();
 
     public Game1() {
@@ -79,193 +44,167 @@ public class Game1 : Game {
         _graphics.PreferredBackBufferWidth = 800;
         _graphics.PreferredBackBufferHeight = 800;
         _graphics.ApplyChanges();
-        currentObjective = Objective.GenerateNew(rng);
-        
-        // Define Hitboxes for Mouse Interaction
-        for (int i = 0; i < 2; i++) menuButtons[i] = new Rectangle(300, 350 + (i * 60), 200, 40);
-        for (int i = 0; i < 2; i++) shopButtons[i] = new Rectangle(100 + (i * 350), 350, 250, 80);
-        
         base.Initialize();
     }
 
     protected override void LoadContent() {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _font = Content.Load<SpriteFont>("ScoreFont");
-        player = new Sprite(Content.Load<Texture2D>("SPACE SHIP"), new Vector2(400, 400), 4f, Color.White, 300f);
-        enemyTexture = Content.Load<Texture2D>("ROCKS");
-        _laserSfx = Content.Load<SoundEffect>("laserShoot (1)");
-        _explosionSfx = Content.Load<SoundEffect>("explosion");
-        _clickSfx = Content.Load<SoundEffect>("click");
-        _powerUpSfx = Content.Load<SoundEffect>("powerUp");
-        dotTexture = new Texture2D(GraphicsDevice, 1, 1);
-        dotTexture.SetData(new[] { Color.White });
+        shipTex = Content.Load<Texture2D>("SPACE SHIP");
+        rockTex = Content.Load<Texture2D>("ROCKS");
+        _laser = Content.Load<SoundEffect>("laserShoot (1)");
+        _boom = Content.Load<SoundEffect>("explosion");
+        _click = Content.Load<SoundEffect>("click");
+
+        player = new Sprite(shipTex, new Vector2(400, 400), 4f, Color.White, 300f);
+        pixel = new Texture2D(GraphicsDevice, 1, 1);
+        pixel.SetData(new[] { Color.White });
     }
 
     protected override void Update(GameTime gameTime) {
         Input.Update();
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        Point mousePos = new Point(Input.M.X, Input.M.Y);
 
-        switch (currentState) {
-            case GameState.MainMenu:
-                UpdateMenuNav(mousePos, menuButtons);
-                if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A) || Input.LeftClick()) {
-                    _clickSfx.Play();
-                    if (selectedIndex == 0) { ResetGame(); currentState = GameState.Playing; }
-                    else currentState = GameState.Options;
-                }
-                break;
-
-            case GameState.Playing:
-                UpdateGameplay(dt);
-                if (Input.Pressed(Keys.B) || Input.Pressed(Buttons.Y)) currentState = GameState.Shop;
-                if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.Start)) currentState = GameState.Paused;
-                break;
-
-            case GameState.Shop:
-                UpdateMenuNav(mousePos, shopButtons);
-                if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A) || Input.LeftClick()) {
-                    if (selectedIndex == 0 && SaveData.Money >= 100) { SaveData.Money -= 100; SaveData.FireRateLevel++; _powerUpSfx.Play(); }
-                    if (selectedIndex == 1 && SaveData.Money >= 100) { SaveData.Money -= 100; SaveData.SpeedLevel++; _powerUpSfx.Play(); }
-                }
-                if (Input.Pressed(Keys.B) || Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.B)) currentState = GameState.Playing;
-                break;
-
-            case GameState.Paused:
-                if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.Start)) currentState = GameState.Playing;
-                break;
-
-            case GameState.GameOver:
-                if (Input.Pressed(Keys.Space) || Input.Pressed(Buttons.A)) { ResetGame(); currentState = GameState.Playing; }
-                if (Input.Pressed(Keys.B) || Input.Pressed(Buttons.Y)) currentState = GameState.Shop;
-                break;
+        switch (state) {
+            case GameState.MainMenu: UpdateMenu(); break;
+            case GameState.Playing: UpdateGame(dt); break;
+            case GameState.Shop: UpdateShop(); break;
+            case GameState.GameOver: if (Input.Pressed(Keys.Space) || Input.Pressed(Buttons.A)) state = GameState.MainMenu; break;
         }
         base.Update(gameTime);
     }
 
-    private void UpdateMenuNav(Point mPos, Rectangle[] buttons) {
-        // Keyboard/Gamepad Nav
-        if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) selectedIndex = 0;
-        if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) selectedIndex = 1;
-        if (Input.Pressed(Keys.A) || Input.Pressed(Buttons.DPadLeft)) selectedIndex = 0;
-        if (Input.Pressed(Keys.D) || Input.Pressed(Buttons.DPadRight)) selectedIndex = 1;
+    private void UpdateMenu() {
+        if (Input.Pressed(Keys.W) || Input.Pressed(Buttons.DPadUp)) { menuSelect = 0; _click.Play(); }
+        if (Input.Pressed(Keys.S) || Input.Pressed(Buttons.DPadDown)) { menuSelect = 1; _click.Play(); }
 
-        // Mouse Hover Nav (Fixes the "Mouse Not Working" issue)
-        for (int i = 0; i < buttons.Length; i++) {
-            if (buttons[i].Contains(mPos) && (Input.M.Position != Input.PrevM.Position)) {
-                selectedIndex = i;
-            }
+        if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A) || Input.LeftClick()) {
+            if (menuSelect == 0) StartNewGame();
+            else state = GameState.Shop;
         }
     }
 
-    private void UpdateGameplay(float dt) {
-        player.speed = SaveData.GetSpeed();
-        
-        // Aiming Logic (Hybrid Mouse/Stick)
-        Vector2 aimDir = Vector2.Zero;
-        if (Input.G.ThumbSticks.Right.Length() > 0.1f) {
-            aimDir = new Vector2(Input.G.ThumbSticks.Right.X, -Input.G.ThumbSticks.Right.Y);
-            player.rotation = (float)Math.Atan2(aimDir.Y, aimDir.X) + MathHelper.PiOver2;
-        } else {
-            Vector2 mouseDir = new Vector2(Input.M.X, Input.M.Y) - player.position;
-            player.rotation = (float)Math.Atan2(mouseDir.Y, mouseDir.X) + MathHelper.PiOver2;
-        }
+    private void StartNewGame() {
+        score = 0;
+        rocks.Clear();
+        bullets.Clear();
+        player.position = new Vector2(400, 400);
+        state = GameState.Playing;
+    }
 
-        // Movement (Hybrid WASD/Stick)
-        Vector2 moveInput = Vector2.Zero;
-        if (Input.K.IsKeyDown(Keys.W)) moveInput = new Vector2((float)Math.Cos(player.rotation - MathHelper.PiOver2), (float)Math.Sin(player.rotation - MathHelper.PiOver2));
-        if (Input.G.ThumbSticks.Left.Length() > 0.1f) moveInput = new Vector2(Input.G.ThumbSticks.Left.X, -Input.G.ThumbSticks.Left.Y);
-        player.position += moveInput * player.speed * dt;
+    private void UpdateGame(float dt) {
+        // Player Rotation (Mouse or Right Stick)
+        Vector2 mousePos = new Vector2(Input.M.X, Input.M.Y);
+        Vector2 lookDir = mousePos - player.position;
+        if (Input.G.ThumbSticks.Right.Length() > 0.1f) 
+            player.rotation = (float)Math.Atan2(Input.G.ThumbSticks.Right.X, -Input.G.ThumbSticks.Right.Y);
+        else 
+            player.rotation = (float)Math.Atan2(lookDir.Y, lookDir.X) + MathHelper.PiOver2;
 
-        // Shooting
+        // Movement
+        Vector2 move = Vector2.Zero;
+        if (Input.K.IsKeyDown(Keys.W)) move = new Vector2((float)Math.Cos(player.rotation - MathHelper.PiOver2), (float)Math.Sin(player.rotation - MathHelper.PiOver2));
+        if (Input.G.ThumbSticks.Left.Length() > 0.1f) move = new Vector2(Input.G.ThumbSticks.Left.X, -Input.G.ThumbSticks.Left.Y);
+        player.position += move * SaveData.GetSpeed() * dt;
+
+        // Shooting (L-Click or Controller A/RT)
         shootTimer -= dt;
-        if ((Input.M.LeftButton == ButtonState.Pressed || Input.G.Triggers.Right > 0.5f) && shootTimer <= 0) {
-            _laserSfx.Play(0.1f, 0, 0);
-            Vector2 bulletDir = new Vector2((float)Math.Cos(player.rotation - MathHelper.PiOver2), (float)Math.Sin(player.rotation - MathHelper.PiOver2));
-            bullets.Add(new Bullet(player.position, bulletDir));
+        if ((Input.M.LeftButton == ButtonState.Pressed || Input.Pressed(Buttons.A) || Input.G.Triggers.Right > 0.5f) && shootTimer <= 0) {
+            _laser.Play(0.2f, 0, 0);
+            Vector2 bDir = new Vector2((float)Math.Cos(player.rotation - MathHelper.PiOver2), (float)Math.Sin(player.rotation - MathHelper.PiOver2));
+            bullets.Add(new Bullet(player.position, bDir * 600f));
             shootTimer = SaveData.GetFireRate();
         }
 
-        // Standard Spawning/Collision Logic
+        // Rocks
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
-            enemies.Add(new Enemy(new Vector2(rng.Next(800), -100), player.position, rng));
-            spawnTimer = 1.5f;
+            rocks.Add(new Enemy(new Vector2(rng.Next(800), -50), player.position, rng));
+            spawnTimer = 1.2f;
         }
 
-        for (int i = enemies.Count - 1; i >= 0; i--) {
-            enemies[i].Update(dt);
-            if (Vector2.Distance(player.position, enemies[i].position) < 28) {
-                _explosionSfx.Play();
-                if (currentScore > SaveData.HighScore) SaveData.HighScore = currentScore;
-                currentState = GameState.GameOver;
-            }
+        for (int i = rocks.Count - 1; i >= 0; i--) {
+            rocks[i].Update(dt);
+            if (Vector2.Distance(player.position, rocks[i].position) < 30) { _boom.Play(); state = GameState.GameOver; }
+
             for (int j = bullets.Count - 1; j >= 0; j--) {
-                if (Vector2.Distance(bullets[j].position, enemies[i].position) < 32) {
-                    enemies.RemoveAt(i); bullets.RemoveAt(j);
-                    currentScore += 100; currentObjective.Current++;
-                    _explosionSfx.Play(0.2f, 0.5f, 0);
+                if (Vector2.Distance(bullets[j].position, rocks[i].position) < 35) {
+                    rocks.RemoveAt(i); bullets.RemoveAt(j);
+                    score += 100; SaveData.Money += 10; _boom.Play(0.4f, 0.5f, 0);
                     break;
                 }
             }
         }
         foreach (var b in bullets) b.position += b.velocity * dt;
-        bullets.RemoveAll(b => Vector2.Distance(player.position, b.position) > 1000);
-
-        if (currentObjective.IsComplete) {
-            SaveData.Money += currentObjective.Reward;
-            currentObjective = Objective.GenerateNew(rng);
-            _powerUpSfx.Play();
-        }
+        bullets.RemoveAll(b => b.position.Y < -50 || b.position.Y > 850 || b.position.X < -50 || b.position.X > 850);
     }
 
-    private void ResetGame() {
-        currentScore = 0; enemies.Clear(); bullets.Clear();
-        player.position = new Vector2(400, 400);
+    private void UpdateShop() {
+        if (Input.Pressed(Keys.A) || Input.Pressed(Buttons.DPadLeft)) menuSelect = 0;
+        if (Input.Pressed(Keys.D) || Input.Pressed(Buttons.DPadRight)) menuSelect = 1;
+        if (Input.Pressed(Keys.Escape) || Input.Pressed(Buttons.B)) state = GameState.MainMenu;
+
+        if (Input.Pressed(Keys.Enter) || Input.Pressed(Buttons.A) || Input.LeftClick()) {
+            if (menuSelect == 0 && SaveData.Money >= 200) { SaveData.Money -= 200; SaveData.FireRateLevel++; }
+            if (menuSelect == 1 && SaveData.Money >= 200) { SaveData.Money -= 200; SaveData.SpeedLevel++; }
+        }
     }
 
     protected override void Draw(GameTime gameTime) {
         GraphicsDevice.Clear(Color.Black);
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-        if (currentState == GameState.Playing || currentState == GameState.Paused || currentState == GameState.Shop) {
-            _spriteBatch.Draw(player.texture, player.position, null, Color.White, player.rotation, player.origin, 4f, SpriteEffects.None, 0f);
-            foreach (var e in enemies) _spriteBatch.Draw(enemyTexture, e.position, null, Color.White, e.rotation, new Vector2(25, 25), 4f, SpriteEffects.None, 0f);
-            foreach (var b in bullets) _spriteBatch.Draw(dotTexture, new Rectangle((int)b.position.X, (int)b.position.Y, 6, 6), Color.Yellow);
-            DrawHUD();
+        if (state == GameState.MainMenu) {
+            DrawBtn("START GAME", 350, menuSelect == 0);
+            DrawBtn("UPGRADE SHOP", 420, menuSelect == 1);
+            DrawCentered($"MONEY: ${SaveData.Money}", 700, Color.Gold);
         }
-
-        if (currentState == GameState.MainMenu) {
-            DrawCenteredText("AESTROID", 250, Color.White);
-            DrawCenteredText("START MISSION", 350, selectedIndex == 0 ? Color.Yellow : Color.Gray);
-            DrawCenteredText("SETTINGS", 410, selectedIndex == 1 ? Color.Yellow : Color.Gray);
+        else if (state == GameState.Shop) {
+            DrawCentered("SHOP - $200 PER UPGRADE", 200, Color.Gold);
+            DrawBtn("FIRE RATE", 350, menuSelect == 0, 100);
+            DrawBtn("SHIP SPEED", 350, menuSelect == 1, 450);
+            DrawCentered("ESC TO EXIT", 600, Color.Gray);
         }
-
-        if (currentState == GameState.Shop) {
-            _spriteBatch.Draw(dotTexture, new Rectangle(0,0,800,800), Color.Black * 0.7f);
-            DrawCenteredText("SHOP (ESC TO CLOSE)", 250, Color.Gold);
-            for (int i = 0; i < 2; i++) {
-                _spriteBatch.Draw(dotTexture, shopButtons[i], selectedIndex == i ? Color.DarkRed : Color.DimGray);
-                _spriteBatch.DrawString(_font, i == 0 ? "FIRE RATE ($100)" : "SPEED ($100)", new Vector2(shopButtons[i].X + 20, shopButtons[i].Y + 25), Color.White);
-            }
+        else if (state == GameState.Playing) {
+            _spriteBatch.Draw(shipTex, player.position, null, Color.White, player.rotation, player.origin, 4f, SpriteEffects.None, 0f);
+            foreach (var r in rocks) _spriteBatch.Draw(rockTex, r.position, null, Color.White, r.rotation, new Vector2(25,25), 4f, SpriteEffects.None, 0f);
+            foreach (var b in bullets) _spriteBatch.Draw(pixel, new Rectangle((int)b.position.X, (int)b.position.Y, 8, 8), Color.Yellow);
+            _spriteBatch.DrawString(_font, $"SCORE: {score}", new Vector2(20,20), Color.White);
+            _spriteBatch.DrawString(_font, $"$: {SaveData.Money}", new Vector2(20,50), Color.Gold);
         }
-
-        if (currentState == GameState.GameOver) {
-            DrawCenteredText("GAME OVER", 300, Color.Red);
-            DrawCenteredText("PRESS [SPACE] OR [A] TO RESTART", 400, Color.White);
-            DrawCenteredText("PRESS [B] OR [Y] FOR SHOP", 450, Color.Yellow);
+        else if (state == GameState.GameOver) {
+            DrawCentered("WRECKED", 350, Color.Red);
+            DrawCentered($"FINAL SCORE: {score}", 400, Color.White);
+            DrawCentered("PRESS SPACE TO MENU", 500, Color.Gray);
         }
 
         _spriteBatch.End();
     }
 
-    private void DrawHUD() {
-        _spriteBatch.DrawString(_font, $"MONEY: ${SaveData.Money}", new Vector2(20, 20), Color.Gold);
-        _spriteBatch.DrawString(_font, $"GOAL: {currentObjective.Description} ({currentObjective.Current}/{currentObjective.Target})", new Vector2(20, 50), Color.Cyan);
+    private void DrawBtn(string t, float y, bool sel, float x = 400) {
+        float scale = sel ? 1.2f : 1.0f;
+        Color c = sel ? Color.Yellow : Color.White;
+        Vector2 size = _font.MeasureString(t) * scale;
+        _spriteBatch.DrawString(_font, t, new Vector2(x - size.X/2, y), c, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
     }
 
-    private void DrawCenteredText(string t, float y, Color c) {
-        Vector2 s = _font.MeasureString(t);
-        _spriteBatch.DrawString(_font, t, new Vector2(400 - s.X / 2, y), c);
+    private void DrawCentered(string t, float y, Color c) {
+        Vector2 size = _font.MeasureString(t);
+        _spriteBatch.DrawString(_font, t, new Vector2(400 - size.X/2, y), c);
     }
+}
+
+// --- ESSENTIAL UTILS ---
+public static class Input {
+    public static KeyboardState K, PK;
+    public static MouseState M, PM;
+    public static GamePadState G, PG;
+    public static void Update() {
+        PK = K; K = Keyboard.GetState();
+        PM = M; M = Mouse.GetState();
+        PG = G; G = GamePad.GetState(PlayerIndex.One);
+    }
+    public static bool Pressed(Keys k) => K.IsKeyDown(k) && PK.IsKeyUp(k);
+    public static bool Pressed(Buttons b) => G.IsButtonDown(b) && PG.IsButtonUp(b);
+    public static bool LeftClick() => M.LeftButton == ButtonState.Pressed && PM.LeftButton == ButtonState.Released;
 }
